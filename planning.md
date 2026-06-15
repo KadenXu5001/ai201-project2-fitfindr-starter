@@ -74,8 +74,8 @@ Create a short, shareable outfit caption (instagram like) for the thrifted find.
 
 **Input parameters:**
 
-- `outfit` (...): The outfit suggestion string from suggest_outfit().
-- `new_item`: The listing dict for the thrifted item. Top choice should be at index 0
+- `outfit` (str): The outfit suggestion string from suggest_outfit().
+- `new_item` (dict): The listing dict for the thrifted item. Top choice should be at index 0
 
 **What it returns:**
 
@@ -251,12 +251,17 @@ Return session
 
 **Milestone 3 — Individual tool implementations:**
 
-For each 3 tools, I will give claude the relevent tool specs and the planning.md as context to inform its initial tool construction. I will also make sure that each tool uses the required helper functions (such as load_listings() for the search listings tool). Then, I will have it generate a test suite, where I will then check for if it passes the suite and then prove 3 test queries as a form of quality control.
+For search_listings: I will give Claude the Tool 1 "Input parameters," "What it returns," and "What happens if it fails or returns nothing" sections, plus the note that it must use load_listings() from utils/data_loader.py. I will ask it to implement keyword scoring without calling an LLM. I will verify by running 3 manual queries: a matching query (returned sorted results), a price-filtered query (items above the cap excluded), and a zero-match query (returned [] without raising).
+
+For suggest_outfit: I will give Claude the Tool 2 "Input parameters," "What it returns," and "What happens if it fails or returns nothing" sections. I will specifically highlight the empty-wardrobe case requiring a fallback LLM prompt. I will verify by calling it with get_empty_wardrobe() and confirming the response is a non-empty styling string, not an exception.
+
+For create_fit_card: I will give Claude the Tool 3 "Input parameters," "What it returns," and "What happens if it fails or returns nothing" sections, including the requirement to return a descriptive error string (not raise) when outfit is empty or whitespace. I will verify by calling create_fit_card('', sample_listing) and confirming the returned string contains a descriptive error message.
+
+In addition to all of this, I will ask Claude to generate a test suite for more in-depth testing.
 
 **Milestone 4 — Planning loop and state management:**
-For the planning loop and state management, I will give claude the planning.md, the flow diagram, and tool specificiations (like search_listings() for example)
 
----
+I will give Claude the Planning Loop section, the State Management section, and the Architecture diagram (the full ASCII flowchart). I will ask it to implement run_agent() so that state will pass only through the session dict and constraint relaxation messages will be stored in session["notes"]. I will verify by running both the happy-path query and the zero-match ballgown query, checking that the session dict will contain the correct fields and that session["error"] will be None on success and populated on failure.
 
 ## A Complete Interaction (Step by Step)
 
@@ -268,29 +273,34 @@ FitFindr needs to take a shopper's request, find the best matching item from the
 
 **Step 1:**
 
-The agent will go set everything up by parsing the user query and filling the subsequent fields of desc, size, and max price, and then and call search_listings with the resulting description of "vintage graphic tee under $30", Size being None, and the max price being 30.
-
-<!-- What does the agent do first? Which tool is called? With what input? -->
+The agent will go set everything up by parsing the user query and filling the subsequent fields of desc, size, and max price, and then and call search_listings() with the resulting description of "vintage graphic tee under $30", Size being None, and the max price being 30.
 
 **Step 2:**
 
-They return a json list from data/listings.json with everything that fits the criteria ordered by relevency. Then, they store those results. Next, they will call the suggest_outfit() function with new item being the top item from the json list, containing these fields:
+Search_listings Then returns a list of listing dicts from `data/listings.json`, sorted by keyword relevance. For this query the top result is a listing whose fields come from the dataset — for example:
 
-id, title, "vintage graphic tee under $30", category, style_tags (list), None,
-condition, 30 (float), colors (list), brand, platform
+{
+"id": "lst_002",
+"title": "Y2K Baby Tee — Butterfly Print",
+"description": "Super cute early 2000s baby tee with butterfly graphic",
+"category": "tops",
+"style_tags": ["y2k"],
+"size": "S/M",
+"condition": "excellent",
+"price": 18.0,
+"colors": ["white"],
+"brand": null,
+"platform": "depop"
+}
 
-and the wardrobe being the wardrobe from the session.
-
-Then, it will send it to an LLM to determine what is the best fitting one.
-
-<!-- What happens next? What was returned from step 1? What tool is called now? -->
+The agent stores this list in session["search_results"] and sets session["selected_item"] to results[0]. It then calls suggest_outfit(session["selected_item"], session["wardrobe"]). The LLM receives the item's title, description, style tags, and the user's existing wardrobe items to generate 1–2 outfit suggestions.
 
 **Step 3:**
 
-The agent will then store the resulting suggestion from the suggest_outfit function, and then put in the new item found and the new outfit suggestoin to create a social media caption.
+The agent stores the suggestion string into session["outfit_suggestion"]. Because we now have both a confirmed item and a complete outfit suggestion, the agent calls create_fit_card(session["outfit_suggestion"], session["selected_item"]) to generate a shareable caption. The outfit string is passed first (as required by the function signature), followed by the listing dict so the caption can reference the item's title, price, and platform.
 
 <!-- Continue until the full interaction is complete -->
 
 **Final output to user:**
 
-The Handel_query function finally returns out the listing_text, outfit_suggestion, and Fit_card. finally, the user sees all 3 in seperate fields.
+run_agent() returns the completed session dict. The caller can then display session["selected_item"]["title"], session["outfit_suggestion"], and session["fit_card"] as separate fields: the listing found, how to style it, and the shareable caption.

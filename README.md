@@ -74,8 +74,8 @@ Create a short, shareable outfit caption (instagram like) for the thrifted find.
 
 **Input parameters:**
 
-- `outfit` (...): The outfit suggestion string from suggest_outfit().
-- `new_item`: The listing dict for the thrifted item. Top choice should be at index 0
+- `outfit` (str): The outfit suggestion string from suggest_outfit().
+- `new_item`(dict): The listing dict for the thrifted item. Top choice should be at index 0
 
 **What it returns:**
 
