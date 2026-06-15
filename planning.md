@@ -15,18 +15,25 @@ You must have at least 3 tools. The three required tools are listed — add any 
 ### Tool 1: search_listings
 
 **What it does:**
+
+It goes through the mock listings dataset and finds items matching the description there
+
 <!-- Describe what this tool does in 1–2 sentences -->
 
 **Input parameters:**
+
 <!-- List each parameter, its type, and what it represents -->
+
 - `description` (str): ...
 - `size` (str): ...
 - `max_price` (float): ...
 
 **What it returns:**
+
 <!-- Describe the return value — what fields does a result contain? -->
 
 **What happens if it fails or returns nothing:**
+
 <!-- What should the agent do if no listings match? -->
 
 ---
@@ -34,17 +41,22 @@ You must have at least 3 tools. The three required tools are listed — add any 
 ### Tool 2: suggest_outfit
 
 **What it does:**
+
 <!-- Describe what this tool does in 1–2 sentences -->
 
 **Input parameters:**
+
 <!-- List each parameter, its type, and what it represents -->
+
 - `new_item` (dict): ...
 - `wardrobe` (dict): ...
 
 **What it returns:**
+
 <!-- Describe the return value -->
 
 **What happens if it fails or returns nothing:**
+
 <!-- What should the agent do if the wardrobe is empty or no outfit can be suggested? -->
 
 ---
@@ -52,16 +64,21 @@ You must have at least 3 tools. The three required tools are listed — add any 
 ### Tool 3: create_fit_card
 
 **What it does:**
+
 <!-- Describe what this tool does in 1–2 sentences -->
 
 **Input parameters:**
+
 <!-- List each parameter, its type, and what it represents -->
+
 - `outfit` (...): ...
 
 **What it returns:**
+
 <!-- Describe the return value -->
 
 **What happens if it fails or returns nothing:**
+
 <!-- What should the agent do if the outfit data is incomplete? -->
 
 ---
@@ -75,6 +92,7 @@ You must have at least 3 tools. The three required tools are listed — add any 
 ## Planning Loop
 
 **How does your agent decide which tool to call next?**
+
 <!-- Describe the logic your planning loop uses. What does it look at? What conditions change its behavior? How does it know when it's done? -->
 
 ---
@@ -82,6 +100,7 @@ You must have at least 3 tools. The three required tools are listed — add any 
 ## State Management
 
 **How does information from one tool get passed to the next?**
+
 <!-- Describe how your agent stores and accesses state within a session. What data is tracked? How is it passed between tool calls? -->
 
 ---
@@ -90,11 +109,11 @@ You must have at least 3 tools. The three required tools are listed — add any 
 
 For each tool, describe the specific failure mode you're handling and what the agent does in response.
 
-| Tool | Failure mode | Agent response |
-|------|-------------|----------------|
-| search_listings | No results match the query | |
-| suggest_outfit | Wardrobe is empty | |
-| create_fit_card | Outfit input is missing or incomplete | |
+| Tool            | Failure mode                          | Agent response |
+| --------------- | ------------------------------------- | -------------- |
+| search_listings | No results match the query            |                |
+| suggest_outfit  | Wardrobe is empty                     |                |
+| create_fit_card | Outfit input is missing or incomplete |                |
 
 ---
 
@@ -134,16 +153,30 @@ For each tool, describe the specific failure mode you're handling and what the a
 
 Write out what a full user interaction looks like from start to finish — tool call by tool call. Use a specific example query.
 
+FitFindr needs to take a shopper's request, find the best matching item from the listings dataset, and filter out items when they don't meet the constraints, like price or size. After the agent chooses a good match, it should use the user’s wardrobe to suggest how to style the piece and then generate a “fit card” caption that sumerizes up the look.
+
 **Example user query:** "I'm looking for a vintage graphic tee under $30. I mostly wear baggy jeans and chunky sneakers. What's out there and how would I style it?"
 
 **Step 1:**
+
+The agent will go set everything up and then and call search_listings with the description of vintage graphic tee under $30, Size being None, and the max price being 30.
+
 <!-- What does the agent do first? Which tool is called? With what input? -->
 
 **Step 2:**
+
+They return a json list from data/listings.json with everything that fits the criteria ordered by relevency. Then, they store those results. Next, they will call the suggest_outfit() function with new item being the top item from the json list and the wardrobe being the wardrobe from the session.
+
+Then, it will send it to an LLM to determine what is the best fitting one.
+
 <!-- What happens next? What was returned from step 1? What tool is called now? -->
 
 **Step 3:**
+
+The agent will then store the resulting suggestion from the suggest_outfit function, and then put in the new item found and the new outfit suggestoin to create a social media caption.
+
 <!-- Continue until the full interaction is complete -->
 
 **Final output to user:**
-<!-- What does the user actually see at the end? -->
+
+The Handel_query function finally returns out the listing_text, outfit_suggestion, and Fit_card. finally, the user sees all 3 in seperate fields.
