@@ -152,18 +152,21 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 
     # Step 3: Search with full constraints, relaxing one at a time if needed
     results = search_listings(description, size=size, max_price=max_price)
+    print(f'search results: {session["search_results"]}')
 
     if not results and max_price is not None:
         session["notes"].append(
             f"No results found under ${max_price:.2f} — removing price filter and trying again."
         )
         results = search_listings(description, size=size, max_price=None)
+        print(f'search results after missing 1: {session["search_results"]}')
 
     if not results and size is not None:
         session["notes"].append(
             f"No results found for size '{size}' — removing size filter and trying again."
         )
         results = search_listings(description, size=None, max_price=None)
+        print(f'search results after missing 2: {session["search_results"]}')
 
     if not results:
         session["error"] = (
@@ -171,21 +174,25 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             "Try different keywords or broaden your search."
         )
         return session
+    
+
 
     session["search_results"] = results
 
 
     # Step 4: Pick the top result
     session["selected_item"] = results[0]
-    #print(f'{session["selected_item"]}')
-    #print(f'{session["search_results"]}')
+    print(f'selected item: {session["selected_item"]}')
+    print(f'search results: {session["search_results"]}')
 
     # Step 5: Suggest outfit using the top listing and the user's wardrobe
     session["outfit_suggestion"] = suggest_outfit(results[0], wardrobe)
-    #print(f'{session["outfit_suggestion"]}')
+    print(f'outfit suggestions: {session["outfit_suggestion"]}')
 
     # Step 6: Generate the shareable fit card caption
     session["fit_card"] = create_fit_card(session["outfit_suggestion"], results[0])
+    print(f'fit_card: {session["fit_card"]}')
+
 
     # Step 7: Return the completed session
     return session
