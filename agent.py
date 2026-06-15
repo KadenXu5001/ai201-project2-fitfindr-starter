@@ -74,7 +74,13 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 
         Step 3: Call search_listings() with the parsed parameters.
                 Store results in session["search_results"].
-                If no results: set session["error"] to a helpful message and
+                If no results: first reduce the scope of the constraints by first removing 
+                the max price constraint and rerunning search_listings() and then 
+                removing the size constraint and rerunning search_listings(), with 
+                every constraint relaxation resulting in sending a message to the user 
+                which constraint has been relaxed. If there are still no results from the end 
+                of these relaxations,               
+                set session["error"] to a helpful message and
                 return the session early. Do NOT proceed to suggest_outfit
                 with empty input.
 

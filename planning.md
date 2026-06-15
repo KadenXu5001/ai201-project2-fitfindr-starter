@@ -35,7 +35,8 @@ condition, price (float), colors (list), brand, platform
 
 **What happens if it fails or returns nothing:**
 
-If Nothing matches, Do not raise an execption. Instead, loosen the constraints by first removing the max_price constraint and requerying, explaining to the user what was adjusted.
+If Nothing matches, Do not raise an execption. Instead, loosen the constraints by first removing the max_price constraint and requerying, explaining to the user what was adjusted. this loosening will be
+organized/orchestrated by agent.py rather than in this specific tool.
 
 Then it should loosen the size constraint and then requery. If no items survive both, then FitFindr tells the user what to try differently and stops
 
