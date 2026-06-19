@@ -26,10 +26,11 @@ _ACTION_PRIORITY = [
 ]
 
 
-def _new_session(query: str, wardrobe: dict) -> dict:
+def _new_session(query: str, wardrobe: dict, listings: list | None = None) -> dict:
     """Initialize and return a fresh session dict for one user interaction."""
     return {
         "query": query,
+        "listings": listings,
         "parsed": {},
         "current_constraints": {},
         "search_results": [],
@@ -148,6 +149,7 @@ def _run_search_step(session: dict) -> None:
         constraints["description"],
         size=constraints["size"],
         max_price=constraints["max_price"],
+        listings=session.get("listings"),
     )
     session["search_results"] = results
     session["search_attempts"].append(
@@ -247,14 +249,31 @@ def _build_planner_prompt(session: dict, valid_actions: list[str]) -> str:
         if session["selected_item"]
         else None,
     }
+    action_descriptions = {
+        "relax_price": "remove the price ceiling and search again",
+        "relax_size": "remove the size filter and search again",
+        "fail_no_results": "give up — no results found after all recovery attempts",
+    }
+    action_hints = "\n".join(
+        f"  - {a}: {action_descriptions[a]}"
+        for a in valid_actions
+        if a in action_descriptions
+    )
+
     return (
-        "You are the planner for a constrained fashion-shopping agent.\n"
-        "Choose the single best next action from the allowed actions.\n"
-        "Prefer recovery before failure. If there are no results and both price and size are "
-        "available to relax, choose the one most likely to preserve user intent.\n"
-        "Respond with JSON only using this schema:\n"
-        '{"action":"one_allowed_action","reason":"short reason"}\n\n'
-        f"Allowed actions: {valid_actions}\n"
+        "You are the decision-making planner for a fashion shopping agent.\n"
+        "Your job is to choose the single best next action given the current search state.\n\n"
+        "Decision rules:\n"
+        "1. Always prefer recovery over failure — only choose fail_no_results if no other option exists.\n"
+        "2. When both relax_price and relax_size are available, relax_price first.\n"
+        "   Price ceilings are more likely to be the blocking constraint than size.\n"
+        "   Exception: if max_price is already above $50, the price is generous — relax_size first.\n"
+        "3. Keep the reason short (5 words or fewer).\n\n"
+        "Available actions:\n"
+        f"{action_hints}\n\n"
+        "Respond with valid JSON only — no explanation outside the JSON:\n"
+        '{"action": "<one of the allowed actions>", "reason": "<5 words or fewer>"}\n\n'
+        f"Allowed actions: {valid_actions}\n\n"
         f"Current state:\n{json.dumps(snapshot, indent=2)}"
     )
 
@@ -283,8 +302,11 @@ def _query_planner_decision(session: dict, valid_actions: list[str]) -> tuple[st
             {
                 "role": "system",
                 "content": (
-                    "You are a careful planning model. Return only valid JSON and only choose "
-                    "from the allowed actions."
+                    "You are a planning model for a fashion shopping agent. "
+                    "You receive a state snapshot and a list of allowed actions. "
+                    "Return only a valid JSON object with keys 'action' and 'reason'. "
+                    "Never choose an action that is not in the allowed list. "
+                    "Never include any text outside the JSON object."
                 ),
             },
             {"role": "user", "content": _build_planner_prompt(session, valid_actions)},
@@ -338,19 +360,25 @@ def _plan_next_action(session: dict) -> str:
         return fallback_action
 
 
-def run_agent(query: str, wardrobe: dict) -> dict:
+def iter_agent(query: str, wardrobe: dict, listings: list | None = None):
     """
-    Run the Fit Finder agent loop for one query.
-
-    The loop is still narrow on purpose, but it now behaves like a real agent:
-    it keeps state, decides what to do next from that state, and records the
-    actions it took while working toward a final fit card.
+    Generator version of the agent loop. Yields a step-info dict after each
+    action so callers can stream decisions in real time. The final session is
+    always accessible from the last yielded value's "session" key.
     """
-    session = _new_session(query, wardrobe)
+    session = _new_session(query, wardrobe, listings=listings)
     max_steps = 10
 
-    for _ in range(max_steps):
+    print(f"\n[agent] Starting query: {query!r}")
+
+    for step in range(max_steps):
         action = _plan_next_action(session)
+
+        planner_entry = session["planner_history"][-1] if session["planner_history"] else {}
+        source = planner_entry.get("source", "")
+        reason = planner_entry.get("reason", "")
+        source_label = f"[{source}]" if source else ""
+        print(f"[agent] step {step + 1}: {action} {source_label}  {reason}")
 
         if action == "finish":
             break
@@ -368,29 +396,24 @@ def run_agent(query: str, wardrobe: dict) -> dict:
                     f"max_price={parsed['max_price']}"
                 ),
             )
-            continue
 
-        if action == "search":
+        elif action == "search":
             _run_search_step(session)
-            continue
 
-        if action == "relax_price":
+        elif action == "relax_price":
             _relax_price_constraint(session)
-            continue
 
-        if action == "relax_size":
+        elif action == "relax_size":
             _relax_size_constraint(session)
-            continue
 
-        if action == "fail_no_results":
+        elif action == "fail_no_results":
             session["error"] = (
                 "No listings found even after relaxing the available filters. "
                 "Try different keywords or broaden your search."
             )
             _record_action(session, "fail_no_results", session["error"])
-            break
 
-        if action == "select_item":
+        elif action == "select_item":
             session["selected_item"] = _select_best_result(
                 session["search_results"], wardrobe
             )
@@ -399,19 +422,17 @@ def run_agent(query: str, wardrobe: dict) -> dict:
                 "select_item",
                 f"Selected '{session['selected_item']['title']}' from candidates.",
             )
-            continue
 
-        if action == "suggest_outfit":
+        elif action == "suggest_outfit":
             outfit = suggest_outfit(session["selected_item"], wardrobe)
             if not outfit or not outfit.strip():
                 session["error"] = "Unable to generate an outfit suggestion."
                 _record_action(session, "suggest_outfit", session["error"])
-                break
-            session["outfit_suggestion"] = outfit
-            _record_action(session, "suggest_outfit", "Generated outfit suggestion.")
-            continue
+            else:
+                session["outfit_suggestion"] = outfit
+                _record_action(session, "suggest_outfit", "Generated outfit suggestion.")
 
-        if action == "create_fit_card":
+        elif action == "create_fit_card":
             fit_card = create_fit_card(
                 session["outfit_suggestion"], session["selected_item"]
             )
@@ -419,19 +440,39 @@ def run_agent(query: str, wardrobe: dict) -> dict:
                 session["error"] = fit_card or "Unable to create a fit card."
                 session["fit_card"] = None
                 _record_action(session, "create_fit_card", session["error"])
-                break
-            session["fit_card"] = fit_card
-            _record_action(session, "create_fit_card", "Created fit card.")
-            continue
+            else:
+                session["fit_card"] = fit_card
+                _record_action(session, "create_fit_card", "Created fit card.")
 
-        session["error"] = f"Agent entered an unknown action state: {action}"
-        _record_action(session, "unknown_action", session["error"])
-        break
+        else:
+            session["error"] = f"Agent entered an unknown action state: {action}"
+            _record_action(session, "unknown_action", session["error"])
+
+        observation = session["tool_history"][-1]["observation"] if session["tool_history"] else ""
+        print(f"         -> {observation}")
+
+        yield {
+            "step": step + 1,
+            "action": action,
+            "source": source,
+            "reason": reason,
+            "observation": observation,
+            "session": session,
+        }
+
+        if session["error"]:
+            break
 
     if not session["error"] and not session["fit_card"]:
         session["error"] = "Agent stopped before completing the request."
         _record_action(session, "timeout", session["error"])
 
+
+def run_agent(query: str, wardrobe: dict, listings: list | None = None) -> dict:
+    """Run the agent loop and return the final session dict."""
+    session = None
+    for step in iter_agent(query, wardrobe, listings=listings):
+        session = step["session"]
     return session
 
 

@@ -72,6 +72,13 @@ def get_empty_wardrobe() -> dict:
     return schema["empty_wardrobe"]
 
 
+def load_demo_listings() -> list[dict]:
+    """Load the three controlled demo listings used to demonstrate constraint relaxation."""
+    path = os.path.join(_DATA_DIR, "demo_listings.json")
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 def get_demo_wardrobe() -> dict:
     """
     Convenience function — returns the 3-item demo wardrobe.

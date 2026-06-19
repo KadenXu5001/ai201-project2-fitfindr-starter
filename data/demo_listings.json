@@ -1,0 +1,54 @@
+[
+  {
+    "id": "demo_lst_001",
+    "title": "Brown Pullover Hoodie",
+    "description": "Classic brown cotton hoodie with kangaroo pocket. Soft and worn-in. The kind of hoodie you live in.",
+    "category": "tops",
+    "style_tags": ["hoodie", "cozy", "streetwear", "basics"],
+    "size": "M",
+    "condition": "good",
+    "price": 40.00,
+    "colors": ["brown"],
+    "brand": null,
+    "platform": "depop"
+  },
+  {
+    "id": "demo_lst_002",
+    "title": "Army Green Canvas Jacket",
+    "description": "Relaxed army green canvas jacket with button front and chest pockets. A solid everyday layer.",
+    "category": "outerwear",
+    "style_tags": ["jacket", "vintage", "earth tones", "classic"],
+    "size": "M",
+    "condition": "excellent",
+    "price": 20.00,
+    "colors": ["green", "army green"],
+    "brand": null,
+    "platform": "thredUp"
+  },
+  {
+    "id": "demo_lst_003",
+    "title": "Black Slim Fit Jeans",
+    "description": "Classic black slim jeans in a dark wash. Sits at the hip, slightly tapered leg. A wardrobe staple.",
+    "category": "bottoms",
+    "style_tags": ["denim", "black", "classic", "streetwear"],
+    "size": "W34",
+    "condition": "good",
+    "price": 50.00,
+    "colors": ["black"],
+    "brand": null,
+    "platform": "poshmark"
+  },
+    {
+    "id": "demo_lst_004",
+    "title": "Black Pullover Hoodie",
+    "description": "Classic Black cotton hoodie with kangaroo pocket. Soft and worn-in. The kind of hoodie you live in.",
+    "category": "tops",
+    "style_tags": ["hoodie", "cozy", "streetwear", "basics"],
+    "size": "M",
+    "condition": "good",
+    "price": 40.00,
+    "colors": ["brown"],
+    "brand": null,
+    "platform": "depop"
+  }
+]

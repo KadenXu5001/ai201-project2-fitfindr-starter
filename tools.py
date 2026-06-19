@@ -48,6 +48,7 @@ def search_listings(
     description: str,
     size: str | None = None,
     max_price: float | None = None,
+    listings: list[dict] | None = None,
 ) -> list[dict]:
     """
     Search the mock listings dataset for items matching the description,
@@ -68,7 +69,8 @@ def search_listings(
         id, title, description, category, style_tags (list), size,
         condition, price (float), colors (list), brand, platform
     """
-    listings = load_listings()
+    if listings is None:
+        listings = load_listings()
 
     # Filter by price ceiling
     if max_price is not None:
