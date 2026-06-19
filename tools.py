@@ -1,7 +1,7 @@
 """
 tools.py
 
-The three required FitFindr tools. Each tool is a standalone function that
+The three required Fit Finder tools. Each tool is a standalone function that
 can be called and tested independently before being wired into the agent loop.
 
 Complete and test each tool before moving to agent.py.

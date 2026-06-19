@@ -22,7 +22,43 @@ SAMPLE_ITEM = {
     "platform": "depop",
 }
 
-SAMPLE_WARDROBE = {"items": [{"name": "Baggy jeans", "category": "bottoms"}]}
+SECOND_ITEM = {
+    "id": "lst_alt",
+    "title": "Vintage Graphic Tee in Blue",
+    "description": "Vintage tee with washed blue cotton and oversized fit.",
+    "category": "tops",
+    "style_tags": ["vintage", "graphic tee", "streetwear", "denim"],
+    "size": "M",
+    "condition": "good",
+    "price": 18.00,
+    "colors": ["blue", "white"],
+    "brand": None,
+    "platform": "depop",
+}
+
+SAMPLE_WARDROBE = {
+    "items": [
+        {
+            "name": "Baggy jeans",
+            "category": "bottoms",
+            "colors": ["blue"],
+            "style_tags": ["denim", "streetwear"],
+        }
+    ]
+}
+
+
+@pytest.fixture(autouse=True)
+def stub_planner(monkeypatch):
+    monkeypatch.setattr(
+        agent,
+        "_query_planner_decision",
+        lambda session, valid_actions: (
+            valid_actions[0],
+            "Test planner picked the first valid action.",
+            '{"action": "stub"}',
+        ),
+    )
 
 
 class TestParseQuery:
@@ -74,6 +110,13 @@ class TestRunAgent:
         assert session["outfit_suggestion"] == "Pair it with baggy jeans and sneakers."
         assert session["fit_card"] == "Found the perfect vintage tee fit."
         assert session["notes"] == []
+        assert [step["action"] for step in session["tool_history"]] == [
+            "parse_query",
+            "search_listings",
+            "select_item",
+            "suggest_outfit",
+            "create_fit_card",
+        ]
 
     def test_relaxes_price_then_succeeds(self, monkeypatch):
         calls = []
@@ -96,7 +139,18 @@ class TestRunAgent:
         ]
         assert session["error"] is None
         assert len(session["notes"]) == 1
-        assert "removing price filter" in session["notes"][0].lower()
+        assert "price filter" in session["notes"][0].lower()
+        assert [step["action"] for step in session["tool_history"]] == [
+            "parse_query",
+            "search_listings",
+            "relax_price",
+            "search_listings",
+            "select_item",
+            "suggest_outfit",
+            "create_fit_card",
+        ]
+        assert session["planner_history"][2]["source"] == "llm"
+        assert session["planner_history"][2]["action"] == "relax_price"
 
     def test_relaxes_price_and_size_before_failing(self, monkeypatch):
         calls = []
@@ -145,3 +199,112 @@ class TestRunAgent:
         }
         assert session["notes"] == []
         assert session["error"] is not None
+
+    def test_selects_item_based_on_wardrobe_compatibility(self, monkeypatch):
+        monkeypatch.setattr(
+            agent,
+            "search_listings",
+            lambda description, size=None, max_price=None: [SAMPLE_ITEM, SECOND_ITEM],
+        )
+        monkeypatch.setattr(agent, "suggest_outfit", lambda new_item, wardrobe: new_item["title"])
+        monkeypatch.setattr(
+            agent,
+            "create_fit_card",
+            lambda outfit, new_item: f"Caption for {new_item['title']}",
+        )
+
+        session = agent.run_agent("vintage graphic tee", SAMPLE_WARDROBE)
+
+        assert session["selected_item"] == SECOND_ITEM
+        assert session["outfit_suggestion"] == "Vintage Graphic Tee in Blue"
+        assert session["fit_card"] == "Caption for Vintage Graphic Tee in Blue"
+
+    def test_create_fit_card_error_is_promoted_to_session_error(self, monkeypatch):
+        monkeypatch.setattr(
+            agent,
+            "search_listings",
+            lambda description, size=None, max_price=None: [SAMPLE_ITEM],
+        )
+        monkeypatch.setattr(agent, "suggest_outfit", lambda *_: "Outfit idea")
+        monkeypatch.setattr(
+            agent,
+            "create_fit_card",
+            lambda *_: "Error: Cannot generate a fit card.",
+        )
+
+        session = agent.run_agent("vintage graphic tee", SAMPLE_WARDROBE)
+
+        assert session["fit_card"] is None
+        assert session["error"] == "Error: Cannot generate a fit card."
+
+    def test_planner_can_choose_size_relaxation_first(self, monkeypatch):
+        def fake_search(description, size=None, max_price=None):
+            if size == "M":
+                return []
+            return [SAMPLE_ITEM]
+
+        def fake_planner(session, valid_actions):
+            if "relax_size" in valid_actions:
+                return (
+                    "relax_size",
+                    "The size filter seems too narrow for this request.",
+                    '{"action":"relax_size","reason":"size seems over-constraining"}',
+                )
+            return (
+                valid_actions[0],
+                "Only one action was available.",
+                '{"action":"fallback"}',
+            )
+
+        monkeypatch.setattr(agent, "search_listings", fake_search)
+        monkeypatch.setattr(agent, "suggest_outfit", lambda *_: "Outfit idea")
+        monkeypatch.setattr(agent, "create_fit_card", lambda *_: "Fit card")
+        monkeypatch.setattr(agent, "_query_planner_decision", fake_planner)
+
+        session = agent.run_agent("vintage graphic tee under $30, size M", SAMPLE_WARDROBE)
+
+        assert session["error"] is None
+        assert session["search_attempts"] == [
+            {
+                "description": "vintage graphic tee",
+                "size": "M",
+                "max_price": 30.0,
+                "result_count": 0,
+            },
+            {
+                "description": "vintage graphic tee",
+                "size": None,
+                "max_price": 30.0,
+                "result_count": 1,
+            },
+        ]
+        assert "size filter" in session["notes"][0].lower()
+        assert session["planner_history"][2]["action"] == "relax_size"
+
+    def test_invalid_planner_output_falls_back_safely(self, monkeypatch):
+        calls = []
+
+        def fake_search(description, size=None, max_price=None):
+            calls.append((description, size, max_price))
+            if max_price is not None:
+                return []
+            return [SAMPLE_ITEM]
+
+        monkeypatch.setattr(agent, "search_listings", fake_search)
+        monkeypatch.setattr(agent, "suggest_outfit", lambda *_: "Outfit idea")
+        monkeypatch.setattr(agent, "create_fit_card", lambda *_: "Fit card")
+        monkeypatch.setattr(
+            agent,
+            "_query_planner_decision",
+            lambda session, valid_actions: (_ for _ in ()).throw(ValueError("bad planner output")),
+        )
+
+        session = agent.run_agent("vintage graphic tee under $30, size M", SAMPLE_WARDROBE)
+
+        assert session["error"] is None
+        assert calls == [
+            ("vintage graphic tee", "M", 30.0),
+            ("vintage graphic tee", "M", None),
+        ]
+        assert session["planner_history"][2]["source"] == "fallback"
+        assert session["planner_history"][2]["action"] == "relax_price"

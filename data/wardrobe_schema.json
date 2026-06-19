@@ -102,5 +102,35 @@
   "empty_wardrobe": {
     "_note": "Use this as the starting template for a new user with no wardrobe entered yet.",
     "items": []
+  },
+
+  "demo_wardrobe": {
+    "_note": "A minimal 3-item wardrobe for demonstrating dynamic constraint relaxation. Pair with the query 'vintage graphic tee under $12 size XS' — the agent will relax the price filter (nothing under $12 matches), then relax the size filter (nothing in XS exists), and finally find graphic tees once all constraints are removed.",
+    "items": [
+      {
+        "id": "demo_001",
+        "name": "Black baggy straight-leg jeans",
+        "category": "bottoms",
+        "colors": ["black"],
+        "style_tags": ["denim", "streetwear", "baggy", "vintage"],
+        "notes": "High-waisted, relaxed through the leg"
+      },
+      {
+        "id": "demo_002",
+        "name": "Black combat boots",
+        "category": "shoes",
+        "colors": ["black"],
+        "style_tags": ["boots", "grunge", "streetwear", "classic"],
+        "notes": "Lace-up, mid-ankle"
+      },
+      {
+        "id": "demo_003",
+        "name": "Black canvas tote bag",
+        "category": "accessories",
+        "colors": ["black"],
+        "style_tags": ["streetwear", "minimal", "accessories", "everyday"],
+        "notes": null
+      }
+    ]
   }
 }

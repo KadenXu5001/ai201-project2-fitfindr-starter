@@ -1,7 +1,7 @@
 """
 tests/test_tools.py
 
-Pytest tests for all three FitFindr tools.
+Pytest tests for all three Fit Finder tools.
 Run from the project root:  pytest tests/test_tools.py -v
 
 Coverage:

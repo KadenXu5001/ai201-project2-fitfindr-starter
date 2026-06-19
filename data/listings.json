@@ -5,7 +5,7 @@
     "description": "Classic 501s in a perfect medium wash. Some light fading at the knees which adds to the vintage look. No rips or stains.",
     "category": "bottoms",
     "style_tags": ["vintage", "classic", "denim", "streetwear"],
-    "size": "W30 L30",
+    "size": "W30",
     "condition": "good",
     "price": 38.00,
     "colors": ["blue", "indigo"],
@@ -405,7 +405,7 @@
   {
     "id": "lst_032",
     "title": "Shacket — Olive Canvas",
-    "description": "Olive canvas shacket — thicker than a shirt, lighter than a jacket. Chest pockets, button-front. Great transitional layer.",
+    "description": "Olive canvas shacket — thicker than a shirt, lighter than a coat. Chest pockets, button-front. Great transitional layer.",
     "category": "outerwear",
     "style_tags": ["earth tones", "classic", "layering", "minimal"],
     "size": "M/L",
@@ -518,5 +518,57 @@
     "colors": ["pink", "lavender", "mint"],
     "brand": null,
     "platform": "depop"
+  },
+  {
+    "id": "lst_041",
+    "title": "Vintage Graphic Tee — Washed Black, Eagle Print",
+    "description": "Sun-faded black graphic tee with a worn eagle print on the chest. Boxy fit, crew neck. 100% cotton, incredibly soft from years of washing. Exactly the kind of tee you can never find twice.",
+    "category": "tops",
+    "style_tags": ["vintage", "graphic tee", "grunge", "streetwear", "band tee"],
+    "size": "M",
+    "condition": "good",
+    "price": 28.00,
+    "colors": ["black", "charcoal"],
+    "brand": null,
+    "platform": "depop"
+  },
+  {
+    "id": "demo_lst_001",
+    "title": "Brown Pullover Hoodie",
+    "description": "Classic brown cotton hoodie with kangaroo pocket. Soft and worn-in. The kind of hoodie you live in.",
+    "category": "tops",
+    "style_tags": ["hoodie", "cozy", "streetwear", "basics"],
+    "size": "M",
+    "condition": "good",
+    "price": 40.00,
+    "colors": ["brown"],
+    "brand": null,
+    "platform": "depop"
+  },
+  {
+    "id": "demo_lst_002",
+    "title": "Army Green Canvas Jacket",
+    "description": "Relaxed army green canvas jacket with button front and chest pockets. A solid everyday layer.",
+    "category": "outerwear",
+    "style_tags": ["jacket", "vintage", "earth tones", "classic"],
+    "size": "M",
+    "condition": "excellent",
+    "price": 20.00,
+    "colors": ["green", "army green"],
+    "brand": null,
+    "platform": "thredUp"
+  },
+  {
+    "id": "demo_lst_003",
+    "title": "Black Slim Fit Jeans",
+    "description": "Classic black slim jeans in a dark wash. Sits at the hip, slightly tapered leg. A wardrobe staple.",
+    "category": "bottoms",
+    "style_tags": ["denim", "black", "classic", "streetwear"],
+    "size": "W34",
+    "condition": "good",
+    "price": 50.00,
+    "colors": ["black"],
+    "brand": null,
+    "platform": "poshmark"
   }
 ]

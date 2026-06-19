@@ -1,7 +1,7 @@
 """
 app.py
 
-Gradio interface for FitFindr. The layout and wiring are already set up —
+Gradio interface for Fit Finder. The layout and wiring are already set up —
 your job is to fill in handle_query() so it calls run_agent() and maps
 the session results to the three output panels.
 
@@ -15,7 +15,7 @@ but check your terminal — the port may differ).
 import gradio as gr
 
 from agent import run_agent
-from utils.data_loader import get_example_wardrobe, get_empty_wardrobe
+from utils.data_loader import get_demo_wardrobe, get_example_wardrobe, get_empty_wardrobe
 
 
 # ── query handler ─────────────────────────────────────────────────────────────
@@ -48,11 +48,12 @@ def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
         return "Please enter a search query.", "", ""
 
     # Step 2: Select wardrobe
-    wardrobe = (
-        get_example_wardrobe()
-        if wardrobe_choice == "Example wardrobe"
-        else get_empty_wardrobe()
-    )
+    if wardrobe_choice == "Example wardrobe":
+        wardrobe = get_example_wardrobe()
+    elif wardrobe_choice == "Demo wardrobe (constraint relaxation)":
+        wardrobe = get_demo_wardrobe()
+    else:
+        wardrobe = get_empty_wardrobe()
 
     # Step 3: Run the planning loop
     session = run_agent(user_query, wardrobe)
@@ -93,12 +94,13 @@ EXAMPLE_QUERIES = [
     "flowy midi skirt under $40",
     "black combat boots size 8",
     "designer ballgown size XXS under $5",   # deliberate no-results test
+    "vintage graphic tee under $12 size XS", # demo: triggers price then size relaxation
 ]
 
 def build_interface():
-    with gr.Blocks(title="FitFindr") as demo:
+    with gr.Blocks(title="Fit Finder") as demo:
         gr.Markdown("""
-# FitFindr 🛍️
+# Fit Finder 🛍️
 Find secondhand pieces and get outfit ideas based on your wardrobe.
 Describe what you're looking for — include size and price if you want to filter.
         """)
@@ -111,7 +113,7 @@ Describe what you're looking for — include size and price if you want to filte
                 scale=3,
             )
             wardrobe_choice = gr.Radio(
-                choices=["Example wardrobe", "Empty wardrobe (new user)"],
+                choices=["Example wardrobe", "Demo wardrobe (constraint relaxation)", "Empty wardrobe (new user)"],
                 value="Example wardrobe",
                 label="Wardrobe",
                 scale=1,
@@ -137,7 +139,10 @@ Describe what you're looking for — include size and price if you want to filte
             )
 
         gr.Examples(
-            examples=[[q, "Example wardrobe"] for q in EXAMPLE_QUERIES],
+            examples=[
+                *[[q, "Example wardrobe"] for q in EXAMPLE_QUERIES[:-1]],
+                ["vintage graphic tee under $12 size XS", "Demo wardrobe (constraint relaxation)"],
+            ],
             inputs=[query_input, wardrobe_choice],
             label="Try these queries",
         )

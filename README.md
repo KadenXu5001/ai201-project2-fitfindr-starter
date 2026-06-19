@@ -1,4 +1,4 @@
-# FitFindr — README.md
+# Fit Finder — README.md
 
 > Complete this document before writing any implementation code.
 > Your spec and agent diagram are what you'll use to direct AI tools (Claude, Copilot, etc.) to generate your implementation — the more specific they are, the more useful the generated code will be.
@@ -38,7 +38,7 @@ condition, price (float), colors (list), brand, platform
 If Nothing matches, Do not raise an execption. Instead, loosen the constraints by first removing the max_price constraint and requerying, explaining to the user what was adjusted. this loosening will be
 organized/orchestrated by agent.py rather than in this specific tool.
 
-Then it should loosen the size constraint and then requery. If no items survive both, then FitFindr tells the user what to try differently and stops
+Then it should loosen the size constraint and then requery. If no items survive both, then Fit Finder tells the user what to try differently and stops
 
 ---
 
@@ -168,18 +168,6 @@ One place that I deviated from the spec was with the initial archetecture loop, 
 - \_What I gave the AI: A task to create Search listings given the planning.md and tools.py
 - \_What it produced: The exact ideas in tools.py, not taking into account the specific changes I had in mind for the tool in planning.md
 - \_What I changed or overrode: Manually tweaked prompt to include relevence scoring by explicit keyword matching instead of calling groq.
-
----
-
-## Demo Video
-
-[FitFindr Demo](https://youtu.be/dJdEA7gAo7c)
-
----
-
-## Model
-
-The model used in this project is available on Hugging Face: [Catty5001/TakeMakerModel](https://huggingface.co/Catty5001/TakeMakerModel)
 
 ---
 

@@ -72,6 +72,22 @@ def get_empty_wardrobe() -> dict:
     return schema["empty_wardrobe"]
 
 
+def get_demo_wardrobe() -> dict:
+    """
+    Convenience function — returns the 3-item demo wardrobe.
+
+    Pair with the query "vintage graphic tee under $12 size XS" to trigger
+    dynamic constraint relaxation: the agent drops the price filter first
+    (nothing under $12 matches), then drops the size filter (XS doesn't exist
+    in the dataset), before finally finding results.
+
+    Returns:
+        A wardrobe dict with an 'items' key containing 3 wardrobe items.
+    """
+    schema = load_wardrobe_schema()
+    return schema["demo_wardrobe"]
+
+
 # --- Quick sanity check ---
 if __name__ == "__main__":
     listings = load_listings()

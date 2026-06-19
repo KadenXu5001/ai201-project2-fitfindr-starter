@@ -1,4 +1,4 @@
-# FitFindr — planning.md
+# Fit Finder — planning.md
 
 > Complete this document before writing any implementation code.
 > Your spec and agent diagram are what you'll use to direct AI tools (Claude, Copilot, etc.) to generate your implementation — the more specific they are, the more useful the generated code will be.
@@ -38,7 +38,7 @@ condition, price (float), colors (list), brand, platform
 If Nothing matches, Do not raise an execption. Instead, loosen the constraints by first removing the max_price constraint and requerying, explaining to the user what was adjusted. this loosening will be
 organized/orchestrated by agent.py rather than in this specific tool.
 
-Then it should loosen the size constraint and then requery. If no items survive both, then FitFindr tells the user what to try differently and stops
+Then it should loosen the size constraint and then requery. If no items survive both, then Fit Finder tells the user what to try differently and stops
 
 ---
 
@@ -267,7 +267,7 @@ I will give Claude the Planning Loop section, the State Management section, and 
 
 Write out what a full user interaction looks like from start to finish — tool call by tool call. Use a specific example query.
 
-FitFindr needs to take a shopper's request, find the best matching item from the listings dataset, and filter out items when they don't meet the constraints, like price or size. After the agent chooses a good match, it should use the user’s wardrobe to suggest how to style the piece and then generate a “fit card” caption that sumerizes up the look.
+Fit Finder needs to take a shopper's request, find the best matching item from the listings dataset, and filter out items when they don't meet the constraints, like price or size. After the agent chooses a good match, it should use the user’s wardrobe to suggest how to style the piece and then generate a “fit card” caption that sumerizes up the look.
 
 **Example user query:** "I'm looking for a vintage graphic tee under $30. I mostly wear baggy jeans and chunky sneakers. What's out there and how would I style it?"
 

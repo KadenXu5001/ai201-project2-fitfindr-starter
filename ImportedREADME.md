@@ -1,11 +1,11 @@
-# FitFindr — Starter Kit
+# Fit Finder — Starter Kit
 
 This starter kit contains everything you need to begin Project 2.
 
 ## What's Included
 
 ```
-ai201-project2-fitfindr-starter/
+Fit Finder/
 ├── data/
 │   ├── listings.json          # 40 mock secondhand listings
 │   └── wardrobe_schema.json   # Wardrobe format + example wardrobe
