@@ -18,16 +18,36 @@ from agent import iter_agent
 from utils.data_loader import get_demo_wardrobe, get_example_wardrobe, get_empty_wardrobe, load_demo_listings
 
 
+def _session_snapshot(session: dict) -> dict:
+    """Extract the most readable parts of the session for the state panel."""
+    return {
+        "query": session["query"],
+        "current_constraints": session["current_constraints"],
+        "relaxations": session["relaxations"],
+        "search_status": session["search_status"],
+        "search_attempts": [
+            {"description": a["description"], "size": a["size"],
+             "max_price": a["max_price"], "results": a["result_count"]}
+            for a in session["search_attempts"]
+        ],
+        "selected_item": session["selected_item"]["title"] if session["selected_item"] else None,
+        "tool_history": [
+            {"action": h["action"], "observation": h["observation"]}
+            for h in session["tool_history"]
+        ],
+    }
+
+
 # ── query handler ─────────────────────────────────────────────────────────────
 
 def handle_query(user_query: str, wardrobe_choice: str):
     """
     Generator called by Gradio when the user submits a query. Yields
-    (listing_text, outfit_suggestion, fit_card, dashboard) tuples so the
-    agent decision dashboard streams in real time as the agent runs.
+    (listing_text, outfit_suggestion, fit_card, dashboard, session_state) tuples
+    so the agent decision dashboard and session state stream in real time.
     """
     if not user_query or not user_query.strip():
-        yield "Please enter a search query.", "", "", ""
+        yield "Please enter a search query.", "", "", "", {}
         return
 
     if wardrobe_choice == "Example wardrobe":
@@ -48,16 +68,16 @@ def handle_query(user_query: str, wardrobe_choice: str):
         if step["observation"]:
             entry += f"\n  → {step['observation']}"
         decisions.append(entry)
-        yield "", "", "", "\n\n".join(decisions)
+        yield "", "", "", "\n\n".join(decisions), _session_snapshot(session)
 
     if session is None:
-        yield "No response from agent.", "", "", ""
+        yield "No response from agent.", "", "", "", {}
         return
 
     if session["error"]:
         notes = "\n".join(session.get("notes", []))
         error_text = (notes + "\n\n" + session["error"]).strip()
-        yield error_text, "", "", "\n\n".join(decisions)
+        yield error_text, "", "", "\n\n".join(decisions), _session_snapshot(session)
         return
 
     item = session["selected_item"]
@@ -78,7 +98,7 @@ def handle_query(user_query: str, wardrobe_choice: str):
     if notes:
         listing_text = "\n".join(notes) + "\n\n" + listing_text
 
-    yield listing_text, session["outfit_suggestion"], session["fit_card"], "\n\n".join(decisions)
+    yield listing_text, session["outfit_suggestion"], session["fit_card"], "\n\n".join(decisions), _session_snapshot(session)
 
 
 # ── interface ─────────────────────────────────────────────────────────────────
@@ -152,11 +172,14 @@ Describe what you're looking for — include size and price if you want to filte
             with gr.Column(scale=1, min_width=260):
                 dashboard_output = gr.Textbox(
                     label="🤖 Agent decisions",
-                    lines=28,
+                    lines=14,
                     interactive=False,
                 )
+                session_output = gr.JSON(
+                    label="📋 Session state",
+                )
 
-        outputs = [listing_output, outfit_output, fitcard_output, dashboard_output]
+        outputs = [listing_output, outfit_output, fitcard_output, dashboard_output, session_output]
 
         submit_btn.click(
             fn=handle_query,
