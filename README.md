@@ -168,3 +168,21 @@ One place that I deviated from the spec was with the initial archetecture loop, 
 - \_What I gave the AI: A task to create Search listings given the planning.md and tools.py
 - \_What it produced: The exact ideas in tools.py, not taking into account the specific changes I had in mind for the tool in planning.md
 - \_What I changed or overrode: Manually tweaked prompt to include relevence scoring by explicit keyword matching instead of calling groq.
+
+---
+
+## Demo Video
+
+[FitFindr Demo](https://youtu.be/dJdEA7gAo7c)
+
+---
+
+## Model
+
+The model used in this project is available on Hugging Face: [Catty5001/TakeMakerModel](https://huggingface.co/Catty5001/TakeMakerModel)
+
+---
+
+## Community Choice
+
+**r/nba** — one of Reddit's most active sports communities, with thousands of posts daily ranging from rigorous statistical breakdowns to pure emotional reactions. The discourse quality gap is wide and real: a post citing PER, true shooting %, and historical comparisons sits in a completely different category than "bro this take is cooked 💀". This variance makes r/nba a strong fit for a classification task — the labels are grounded in distinctions that community members themselves make constantly.

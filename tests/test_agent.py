@@ -1,0 +1,147 @@
+import os
+import sys
+
+import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+import agent  # noqa: E402
+
+
+SAMPLE_ITEM = {
+    "id": "lst_test",
+    "title": "Vintage Graphic Tee",
+    "description": "A great vintage band tee with faded print.",
+    "category": "tops",
+    "style_tags": ["vintage", "graphic tee", "streetwear"],
+    "size": "M",
+    "condition": "good",
+    "price": 22.00,
+    "colors": ["black", "white"],
+    "brand": None,
+    "platform": "depop",
+}
+
+SAMPLE_WARDROBE = {"items": [{"name": "Baggy jeans", "category": "bottoms"}]}
+
+
+class TestParseQuery:
+    def test_extracts_description_size_and_price(self):
+        parsed = agent._parse_query("vintage graphic tee under $30, size M")
+
+        assert parsed == {
+            "description": "vintage graphic tee",
+            "size": "M",
+            "max_price": 30.0,
+        }
+
+    def test_handles_query_without_filters(self):
+        parsed = agent._parse_query("black combat boots")
+
+        assert parsed == {
+            "description": "black combat boots",
+            "size": None,
+            "max_price": None,
+        }
+
+
+class TestRunAgent:
+    def test_happy_path_populates_session(self, monkeypatch):
+        monkeypatch.setattr(
+            agent,
+            "search_listings",
+            lambda description, size=None, max_price=None: [SAMPLE_ITEM],
+        )
+        monkeypatch.setattr(
+            agent,
+            "suggest_outfit",
+            lambda new_item, wardrobe: "Pair it with baggy jeans and sneakers.",
+        )
+        monkeypatch.setattr(
+            agent,
+            "create_fit_card",
+            lambda outfit, new_item: "Found the perfect vintage tee fit.",
+        )
+
+        session = agent.run_agent("vintage graphic tee under $30, size M", SAMPLE_WARDROBE)
+
+        assert session["error"] is None
+        assert session["parsed"]["description"] == "vintage graphic tee"
+        assert session["parsed"]["size"] == "M"
+        assert session["parsed"]["max_price"] == 30.0
+        assert session["search_results"] == [SAMPLE_ITEM]
+        assert session["selected_item"] == SAMPLE_ITEM
+        assert session["outfit_suggestion"] == "Pair it with baggy jeans and sneakers."
+        assert session["fit_card"] == "Found the perfect vintage tee fit."
+        assert session["notes"] == []
+
+    def test_relaxes_price_then_succeeds(self, monkeypatch):
+        calls = []
+
+        def fake_search(description, size=None, max_price=None):
+            calls.append((description, size, max_price))
+            if max_price is not None:
+                return []
+            return [SAMPLE_ITEM]
+
+        monkeypatch.setattr(agent, "search_listings", fake_search)
+        monkeypatch.setattr(agent, "suggest_outfit", lambda *_: "Outfit idea")
+        monkeypatch.setattr(agent, "create_fit_card", lambda *_: "Fit card")
+
+        session = agent.run_agent("vintage graphic tee under $30, size M", SAMPLE_WARDROBE)
+
+        assert calls == [
+            ("vintage graphic tee", "M", 30.0),
+            ("vintage graphic tee", "M", None),
+        ]
+        assert session["error"] is None
+        assert len(session["notes"]) == 1
+        assert "removing price filter" in session["notes"][0].lower()
+
+    def test_relaxes_price_and_size_before_failing(self, monkeypatch):
+        calls = []
+
+        def fake_search(description, size=None, max_price=None):
+            calls.append((description, size, max_price))
+            return []
+
+        downstream_calls = {"suggest": 0, "card": 0}
+
+        monkeypatch.setattr(agent, "search_listings", fake_search)
+        monkeypatch.setattr(
+            agent,
+            "suggest_outfit",
+            lambda *_: downstream_calls.__setitem__("suggest", downstream_calls["suggest"] + 1),
+        )
+        monkeypatch.setattr(
+            agent,
+            "create_fit_card",
+            lambda *_: downstream_calls.__setitem__("card", downstream_calls["card"] + 1),
+        )
+
+        session = agent.run_agent("designer ballgown size XXS under $5", SAMPLE_WARDROBE)
+
+        assert calls == [
+            ("designer ballgown", "XXS", 5.0),
+            ("designer ballgown", "XXS", None),
+            ("designer ballgown", None, None),
+        ]
+        assert session["selected_item"] is None
+        assert session["outfit_suggestion"] is None
+        assert session["fit_card"] is None
+        assert "No listings found" in session["error"]
+        assert len(session["notes"]) == 2
+        assert downstream_calls == {"suggest": 0, "card": 0}
+
+    def test_no_filters_and_no_results_returns_error(self, monkeypatch):
+        monkeypatch.setattr(agent, "search_listings", lambda *args, **kwargs: [])
+
+        session = agent.run_agent("totally made up item", SAMPLE_WARDROBE)
+
+        assert session["parsed"] == {
+            "description": "totally made up item",
+            "size": None,
+            "max_price": None,
+        }
+        assert session["notes"] == []
+        assert session["error"] is not None
