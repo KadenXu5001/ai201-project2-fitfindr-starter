@@ -13,6 +13,14 @@ from tools import _get_groq_client, create_fit_card, search_listings, suggest_ou
 
 
 _PLANNER_MODEL = os.environ.get("FITFINDER_AGENT_MODEL", "llama-3.3-70b-versatile")
+
+_DETERMINISTIC_EXPLANATIONS = {
+    "parse_query":    "Extracting the search criteria from the user's natural language query.",
+    "search":         "Searching the listings catalog with the current constraints.",
+    "select_item":    "Choosing the best match by scoring each result against the user's wardrobe.",
+    "fail_no_results":"Giving up — no results were found after exhausting all constraint relaxations.",
+    "finish":         "All steps complete — returning results to the user.",
+}
 _ACTION_PRIORITY = [
     "parse_query",
     "search",
@@ -235,45 +243,64 @@ def _fallback_next_action(session: dict, valid_actions: list[str] | None = None)
     return "finish"
 
 
+_ALL_TOOL_DESCRIPTIONS = {
+    "parse_query":    "extract description, size, and price from the user's natural language query",
+    "search":         "search the listings catalog using current constraints",
+    "relax_price":    "remove the price ceiling and allow a fresh search",
+    "relax_size":     "remove the size filter and allow a fresh search",
+    "select_item":    "pick the best matching listing scored by wardrobe compatibility",
+    "suggest_outfit": "call the outfit LLM to style the item with the user's wardrobe",
+    "create_fit_card":"call the fit card LLM to write a shareable social media caption",
+    "fail_no_results":"terminate with an error — no results after all recovery attempts",
+    "finish":         "end the session and return results to the user",
+}
+
+
 def _build_planner_prompt(session: dict, valid_actions: list[str]) -> str:
-    """Create a concise state snapshot for the LLM planner."""
+    """Create the planner prompt with goal, tools, workflow, progress, and state."""
     snapshot = {
         "query": session["query"],
-        "parsed": session["parsed"],
         "current_constraints": session["current_constraints"],
         "search_status": session["search_status"],
         "search_attempts": session["search_attempts"],
+        "relaxations_used": session["relaxations"],
         "result_count": len(session["search_results"]),
-        "notes": session["notes"],
-        "selected_item": session["selected_item"]["title"]
-        if session["selected_item"]
-        else None,
     }
-    action_descriptions = {
-        "relax_price": "remove the price ceiling and search again",
-        "relax_size": "remove the size filter and search again",
-        "fail_no_results": "give up — no results found after all recovery attempts",
+    progress = {
+        "query_parsed":     bool(session["parsed"]),
+        "item_selected":    session["selected_item"]["title"] if session["selected_item"] else False,
+        "outfit_suggested": bool(session["outfit_suggestion"]),
+        "fit_card_created": bool(session["fit_card"]),
     }
-    action_hints = "\n".join(
-        f"  - {a}: {action_descriptions[a]}"
-        for a in valid_actions
-        if a in action_descriptions
+    all_tools = "\n".join(
+        f"  - {name}: {desc}" for name, desc in _ALL_TOOL_DESCRIPTIONS.items()
     )
-
+    valid_tools = "\n".join(
+        f"  - {a}: {_ALL_TOOL_DESCRIPTIONS.get(a, '')}" for a in valid_actions
+    )
     return (
-        "You are the decision-making planner for a fashion shopping agent.\n"
-        "Your job is to choose the single best next action given the current search state.\n\n"
-        "Decision rules:\n"
-        "1. Always prefer recovery over failure — only choose fail_no_results if no other option exists.\n"
-        "2. When both relax_price and relax_size are available, relax_price first.\n"
-        "   Price ceilings are more likely to be the blocking constraint than size.\n"
-        "   Exception: if max_price is already above $50, the price is generous — relax_size first.\n"
-        "3. Keep the reason short (5 words or fewer).\n\n"
-        "Available actions:\n"
-        f"{action_hints}\n\n"
-        "Respond with valid JSON only — no explanation outside the JSON:\n"
-        '{"action": "<one of the allowed actions>", "reason": "<5 words or fewer>"}\n\n'
-        f"Allowed actions: {valid_actions}\n\n"
+        "You are the decision-making planner for FitFinder, a fashion shopping agent.\n\n"
+        "GOAL:\n"
+        "  Help the user find a secondhand item matching their query, style it into a complete\n"
+        "  outfit using their wardrobe, then produce a shareable fit card caption.\n\n"
+        "ALL AVAILABLE TOOLS:\n"
+        f"{all_tools}\n\n"
+        "IDEAL WORKFLOW:\n"
+        "  parse_query → search → [relax_price / relax_size if needed] →\n"
+        "  select_item → suggest_outfit → create_fit_card → finish\n\n"
+        "PROGRESS SO FAR:\n"
+        f"{json.dumps(progress, indent=2)}\n\n"
+        "DECISION RULES:\n"
+        "  1. Prefer recovery over failure — only choose fail_no_results if nothing else is left.\n"
+        "  2. When both relax_price and relax_size are available, relax_price first.\n"
+        "     Exception: if max_price > $50, relax_size first instead.\n"
+        "  3. After selecting an item, call suggest_outfit to give the user styling context.\n"
+        "  4. After suggesting an outfit, call create_fit_card to complete the experience.\n"
+        "  5. Only choose finish early if the user's goal is already fully met.\n\n"
+        "ALLOWED ACTIONS RIGHT NOW (choose exactly one):\n"
+        f"{valid_tools}\n\n"
+        "Respond with valid JSON only — no text outside the object:\n"
+        '{"action": "<chosen action>", "reason": "<one sentence explaining why>"}\n\n'
         f"Current state:\n{json.dumps(snapshot, indent=2)}"
     )
 
@@ -302,17 +329,19 @@ def _query_planner_decision(session: dict, valid_actions: list[str]) -> tuple[st
             {
                 "role": "system",
                 "content": (
-                    "You are a planning model for a fashion shopping agent. "
-                    "You receive a state snapshot and a list of allowed actions. "
-                    "Return only a valid JSON object with keys 'action' and 'reason'. "
-                    "Never choose an action that is not in the allowed list. "
+                    "You are a planning model for FitFinder, a fashion shopping agent. "
+                    "You receive the agent's goal, all available tools, current progress, "
+                    "and a constrained list of allowed actions for this step. "
+                    "Return only a valid JSON object with exactly two keys: "
+                    "'action' (must be from the allowed list) and "
+                    "'reason' (one clear sentence explaining why this action moves the agent toward its goal). "
                     "Never include any text outside the JSON object."
                 ),
             },
             {"role": "user", "content": _build_planner_prompt(session, valid_actions)},
         ],
-        temperature=0.1,
-        max_tokens=120,
+        temperature=0.3,
+        max_tokens=200,
     )
     raw_content = response.choices[0].message.content
     payload = _parse_planner_response(raw_content)
@@ -451,11 +480,17 @@ def iter_agent(query: str, wardrobe: dict, listings: list | None = None):
         observation = session["tool_history"][-1]["observation"] if session["tool_history"] else ""
         print(f"         -> {observation}")
 
+        if source == "llm":
+            explanation = reason
+        else:
+            explanation = _DETERMINISTIC_EXPLANATIONS.get(action, observation)
+
         yield {
             "step": step + 1,
             "action": action,
             "source": source,
             "reason": reason,
+            "explanation": explanation,
             "observation": observation,
             "session": session,
         }

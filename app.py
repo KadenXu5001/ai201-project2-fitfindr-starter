@@ -65,6 +65,8 @@ def handle_query(user_query: str, wardrobe_choice: str):
     for step in iter_agent(user_query, wardrobe, listings=listings):
         session = step["session"]
         entry = f"Step {step['step']}: selected {step['action']} tool"
+        if step.get("explanation"):
+            entry += f"\n  {step['explanation']}"
         if step["observation"]:
             entry += f"\n  → {step['observation']}"
         decisions.append(entry)

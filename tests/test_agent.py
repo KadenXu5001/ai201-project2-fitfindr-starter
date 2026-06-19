@@ -237,6 +237,35 @@ class TestRunAgent:
         assert session["fit_card"] is None
         assert session["error"] == "Error: Cannot generate a fit card."
 
+    def test_empty_wardrobe_still_generates_general_styling_and_fit_card(self, monkeypatch):
+        empty_wardrobe = {"items": []}
+
+        monkeypatch.setattr(
+            agent,
+            "search_listings",
+            lambda description, size=None, max_price=None: [SAMPLE_ITEM],
+        )
+        monkeypatch.setattr(
+            agent,
+            "suggest_outfit",
+            lambda new_item, wardrobe: (
+                "Try it with straight-leg jeans, a white tank, and simple sneakers."
+                if wardrobe == empty_wardrobe else ""
+            ),
+        )
+        monkeypatch.setattr(
+            agent,
+            "create_fit_card",
+            lambda outfit, new_item: "Easy thrift win for a casual weekend look.",
+        )
+
+        session = agent.run_agent("vintage graphic tee", empty_wardrobe)
+
+        assert session["error"] is None
+        assert session["selected_item"] == SAMPLE_ITEM
+        assert "straight-leg jeans" in session["outfit_suggestion"]
+        assert session["fit_card"] == "Easy thrift win for a casual weekend look."
+
     def test_planner_can_choose_size_relaxation_first(self, monkeypatch):
         def fake_search(description, size=None, max_price=None):
             if size == "M":
@@ -308,3 +337,26 @@ class TestRunAgent:
         ]
         assert session["planner_history"][2]["source"] == "fallback"
         assert session["planner_history"][2]["action"] == "relax_price"
+
+
+class TestValidActions:
+    def test_selected_item_requires_suggest_outfit_before_finish(self):
+        session = agent._new_session("vintage graphic tee", SAMPLE_WARDROBE)
+        session["parsed"] = {"description": "vintage graphic tee", "size": None, "max_price": None}
+        session["current_constraints"] = session["parsed"].copy()
+        session["search_status"] = "results_found"
+        session["search_results"] = [SAMPLE_ITEM]
+        session["selected_item"] = SAMPLE_ITEM
+
+        assert agent._valid_actions_for_state(session) == ["suggest_outfit"]
+
+    def test_outfit_requires_fit_card_before_finish(self):
+        session = agent._new_session("vintage graphic tee", SAMPLE_WARDROBE)
+        session["parsed"] = {"description": "vintage graphic tee", "size": None, "max_price": None}
+        session["current_constraints"] = session["parsed"].copy()
+        session["search_status"] = "results_found"
+        session["search_results"] = [SAMPLE_ITEM]
+        session["selected_item"] = SAMPLE_ITEM
+        session["outfit_suggestion"] = "Pair it with baggy jeans and sneakers."
+
+        assert agent._valid_actions_for_state(session) == ["create_fit_card"]
